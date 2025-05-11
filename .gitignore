@@ -52,3 +52,6 @@ venv.bak/
 # Large data files (if not using LFS for them, or if they are truly temporary)
 # data/*_backup.json
 # data/large_dataset_not_for_git.csv
+
+models/
+logs/
