@@ -1,0 +1,179 @@
+/* static/style.css */
+
+/* --- Base & Body --- */
+body {
+    background-color: #212529; /* Dark background */
+    color: #f8f9fa; /* Light text default */
+    min-height: 100vh; /* Ensure background covers full height */
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex-grow: 1; /* Allow container to fill space */
+}
+
+/* --- Navbar --- */
+.navbar-dark.bg-custom-dark {
+    background-color: #1a1d20 !important; /* Slightly darker than body */
+    border-bottom: 1px solid #FFC107; /* Yellow bottom border */
+}
+
+.navbar-brand img {
+    vertical-align: text-top; /* Align logo nicely */
+}
+
+/* --- Headings --- */
+h1.main-title {
+    color: #FFC107; /* Yellow main title */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    margin-top: 1rem; /* Add some space */
+}
+
+/* --- Cards --- */
+.card {
+    background-color: #343a40; /* Dark card background */
+    border: 1px solid #495057; /* Subtle border */
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    color: #f8f9fa; /* Light text inside cards */
+}
+
+.card-header {
+    background-color: #212529; /* Darker header */
+    border-bottom: 2px solid #FFC107; /* Yellow accent line */
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.card-header h4, .card-header h5 {
+    color: #FFC107; /* Yellow headings in card headers */
+    margin-bottom: 0; /* Remove default margin */
+}
+
+/* --- Forms (Textareas, Selects) --- */
+textarea.form-control,
+select.form-select {
+    background-color: #495057; /* Darker input background */
+    color: #f8f9fa; /* Light text */
+    border: 1px solid #6c757d; /* Grey border */
+    resize: none; /* Disable textarea resize */
+}
+
+textarea.form-control::placeholder {
+    color: #adb5bd; /* Lighter placeholder text */
+}
+
+/* Focus state for inputs */
+textarea.form-control:focus,
+select.form-select:focus {
+    background-color: #495057;
+    color: #f8f9fa;
+    border-color: #FFC107; /* Yellow border on focus */
+    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.3); /* Yellow glow */
+}
+
+/* --- Buttons --- */
+.btn-primary { /* Translate Button */
+    background-color: #FFC107; /* Yellow background */
+    border-color: #FFC107;
+    color: #212529; /* Dark text */
+    font-weight: bold;
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: #e0a800; /* Darker yellow on hover/focus */
+    border-color: #d39e00;
+    color: #212529;
+    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.5);
+}
+
+.btn-secondary { /* Clear Button */
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #ffffff;
+}
+
+.btn-secondary:hover, .btn-secondary:focus, .btn-secondary:active {
+    background-color: #5a6268;
+    border-color: #545b62;
+    color: #ffffff;
+    box-shadow: 0 0 0 0.25rem rgba(130, 138, 145, 0.5);
+}
+
+.btn-outline-secondary { /* Copy Button */
+     color: #adb5bd; /* Lighter grey text */
+     border-color: #6c757d;
+ }
+
+.btn-outline-secondary:hover, .btn-outline-secondary:focus, .btn-outline-secondary:active {
+     color: #ffffff;
+     background-color: #6c757d;
+     border-color: #6c757d;
+     box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.5);
+ }
+
+ /* Remove default blue outline on focused buttons */
+.btn:focus {
+    box-shadow: none !important; /* Override Bootstrap's focus shadow if needed, except for our custom ones */
+}
+.btn-primary:focus {
+     box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.5) !important;
+}
+.btn-secondary:focus {
+    box-shadow: 0 0 0 0.25rem rgba(130, 138, 145, 0.5) !important;
+}
+.btn-outline-secondary:focus {
+    box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.5) !important;
+}
+
+
+/* --- Table --- */
+.table {
+    color: #f8f9fa; /* Base table text color */
+    border-color: #495057; /* Set border color for the table element itself */
+}
+
+/* Header */
+.table thead th {
+    color: #FFC107; /* Yellow header text */
+    background-color: #212529; /* Dark header background */
+    border-color: #495057; /* Match card border */
+    border-bottom-width: 2px;
+}
+
+/* Body Cells - Increase Specificity and Ensure Color */
+#phraseTable td { /* Target cells specifically within the phrase table body */
+    color: #f8f9fa !important; /* Use !important to override potential conflicts */
+    border-color: #495057; /* Ensure cell borders match */
+}
+
+/* Striping (Adjusted slightly for clarity) */
+.table-striped > tbody > tr:nth-of-type(odd) > td { /* Target TD specifically */
+  background-color: rgba(255, 255, 255, 0.05); /* Subtle striping */
+  /* Text color is handled by #phraseTable td rule above */
+}
+.table-striped > tbody > tr:nth-of-type(even) > td { /* Target TD specifically */
+  background-color: transparent; /* Ensure even rows use the card background */
+   /* Text color is handled by #phraseTable td rule above */
+}
+
+
+/* Optional: Style the scrollbar for the table container */
+.card-body[style*="overflow-y: auto"]::-webkit-scrollbar {
+  width: 8px;
+}
+.card-body[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+  background: #343a40;
+}
+.card-body[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+  background-color: #6c757d;
+  border-radius: 4px;
+  border: 2px solid #343a40;
+}
+
+/* --- Error Alert --- */
+#error-alert {
+    background-color: #dc3545;
+    color: #ffffff;
+    border-color: #b02a37;
+}
