@@ -8,14 +8,14 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 LOADED_MODELS = {}
 
 # ===>>> NEW MODEL_PATHS using Hugging Face Hub identifiers <<<===
-HF_USERNAME = "your_hf_username" # Replace with your actual HF username
+HF_USERNAME = "ShakhawatTuhin" # Replace with your actual HF username
 
 MODEL_PATHS = {
-    ("sylheti", "bengali"): f"{HF_USERNAME}/sylheti-translator-sy-bn-1396", # Default best Sy->Bn
-    ("sylheti", "bengali", "899"): f"{HF_USERNAME}/sylheti-translator-sy-bn-899", # For specific selection if needed
+    ("sylheti", "bengali"): f"{HF_USERNAME}/sylheti_translator_sy_bn_1396", # Default best Sy->Bn
+    # ("sylheti", "bengali", "899"): f"{HF_USERNAME}/sylheti_translator_sy_bn_899", # For specific selection if needed
 
-    ("sylheti", "english"): f"{HF_USERNAME}/sylheti-translator-sy-en-1396", # Default best Sy->En
-    ("sylheti", "english", "899"): f"{HF_USERNAME}/sylheti-translator-sy-en-899", # For specific selection
+    ("sylheti", "english"): f"{HF_USERNAME}/sylheti_translator_sy_en_1396", # Default best Sy->En
+    # ("sylheti", "english", "899"): f"{HF_USERNAME}/sylheti_translator_sy_en_899", # For specific selection
 
     # Add Bn->Sy, En->Sy if you train and upload them
     # ("bengali", "sylheti"): f"{HF_USERNAME}/sylheti-translator-bn-sy-XXXX",
