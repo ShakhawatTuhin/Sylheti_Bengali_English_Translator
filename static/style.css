@@ -1,179 +1,530 @@
 /* static/style.css */
 
 /* --- Base & Body --- */
+:root {
+    --primary-color: #7E57C2; /* Modern purple as primary color */
+    --primary-dark: #5E35B1;
+    --primary-light: #B39DDB;
+    --dark-bg: #121212; /* True dark background */
+    --dark-surface: #1E1E1E; /* Card background */
+    --dark-surface-lighter: #2D2D2D; /* Input background */
+    --text-light: #FFFFFF;
+    --text-secondary: #B0B0B0;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --success-color: #4CAF50;
+    --error-color: #F44336;
+    --shadow-color: rgba(0, 0, 0, 0.4);
+    --transition-speed: 0.3s;
+}
+
 body {
-    background-color: #212529; /* Dark background */
-    color: #f8f9fa; /* Light text default */
-    min-height: 100vh; /* Ensure background covers full height */
+    background-color: var(--dark-bg);
+    color: var(--text-light);
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    transition: background-color var(--transition-speed) ease;
 }
 
 .container {
-    flex-grow: 1; /* Allow container to fill space */
+    flex-grow: 1;
+    max-width: 1200px; /* Wider container for better use of space */
+    padding: 0 1rem;
 }
 
 /* --- Navbar --- */
 .navbar-dark.bg-custom-dark {
-    background-color: #1a1d20 !important; /* Slightly darker than body */
-    border-bottom: 1px solid #FFC107; /* Yellow bottom border */
+    background-color: var(--dark-bg) !important;
+    border-bottom: 1px solid var(--primary-color);
+    box-shadow: 0 2px 10px var(--shadow-color);
+    padding: 0.8rem 0;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.4rem;
+    color: var(--text-light) !important;
+    display: flex;
+    align-items: center;
 }
 
 .navbar-brand img {
-    vertical-align: text-top; /* Align logo nicely */
+    filter: hue-rotate(230deg) saturate(2) brightness(0.9) !important; /* Purple tint for logo */
+    margin-right: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.navbar-brand:hover img {
+    transform: rotate(10deg);
 }
 
 /* --- Headings --- */
 h1.main-title {
-    color: #FFC107; /* Yellow main title */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    margin-top: 1rem; /* Add some space */
+    color: var(--primary-light);
+    text-shadow: 0px 2px 4px var(--shadow-color);
+    margin: 1.5rem 0;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-align: center;
+    font-size: 2.5rem;
+}
+
+@media (max-width: 576px) {
+    h1.main-title {
+        font-size: 2rem;
+    }
 }
 
 /* --- Cards --- */
 .card {
-    background-color: #343a40; /* Dark card background */
-    border: 1px solid #495057; /* Subtle border */
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
-    color: #f8f9fa; /* Light text inside cards */
+    background-color: var(--dark-surface);
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px var(--shadow-color);
+    color: var(--text-light);
+    margin-bottom: 2rem;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 20px var(--shadow-color);
 }
 
 .card-header {
-    background-color: #212529; /* Darker header */
-    border-bottom: 2px solid #FFC107; /* Yellow accent line */
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.5rem;
 }
 
 .card-header h4, .card-header h5 {
-    color: #FFC107; /* Yellow headings in card headers */
-    margin-bottom: 0; /* Remove default margin */
+    color: var(--primary-light);
+    margin-bottom: 0;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 1.5rem;
 }
 
 /* --- Forms (Textareas, Selects) --- */
 textarea.form-control,
 select.form-select {
-    background-color: #495057; /* Darker input background */
-    color: #f8f9fa; /* Light text */
-    border: 1px solid #6c757d; /* Grey border */
-    resize: none; /* Disable textarea resize */
+    background-color: var(--dark-surface-lighter);
+    color: var(--text-light);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    transition: all var(--transition-speed) ease;
+    min-height: 150px; /* Taller textareas */
+}
+
+select.form-select {
+    min-height: auto;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23B0B0B0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
 }
 
 textarea.form-control::placeholder {
-    color: #adb5bd; /* Lighter placeholder text */
+    color: var(--text-secondary);
 }
 
 /* Focus state for inputs */
 textarea.form-control:focus,
 select.form-select:focus {
-    background-color: #495057;
-    color: #f8f9fa;
-    border-color: #FFC107; /* Yellow border on focus */
-    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.3); /* Yellow glow */
+    background-color: var(--dark-surface-lighter);
+    color: var(--text-light);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(126, 87, 194, 0.3);
+}
+
+/* Ensure full height on textarea containers */
+.flex-grow-1 textarea.form-control {
+    height: 100%;
+}
+
+/* Responsive layout adjustments */
+@media (max-width: 767.98px) {
+    .flex-column {
+        margin-bottom: 1.5rem;
+    }
+    
+    textarea.form-control {
+        min-height: 120px;
+    }
+}
+
+/* --- Labels --- */
+.form-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
 }
 
 /* --- Buttons --- */
+.btn {
+    border-radius: 8px;
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
 .btn-primary { /* Translate Button */
-    background-color: #FFC107; /* Yellow background */
-    border-color: #FFC107;
-    color: #212529; /* Dark text */
-    font-weight: bold;
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--text-light);
 }
 
 .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-    background-color: #e0a800; /* Darker yellow on hover/focus */
-    border-color: #d39e00;
-    color: #212529;
-    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.5);
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(94, 53, 177, 0.4);
 }
 
 .btn-secondary { /* Clear Button */
-    background-color: #6c757d;
-    border-color: #6c757d;
-    color: #ffffff;
+    background-color: transparent;
+    border-color: var(--border-color);
+    color: var(--text-secondary);
 }
 
 .btn-secondary:hover, .btn-secondary:focus, .btn-secondary:active {
-    background-color: #5a6268;
-    border-color: #545b62;
-    color: #ffffff;
-    box-shadow: 0 0 0 0.25rem rgba(130, 138, 145, 0.5);
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--text-secondary);
+    color: var(--text-light);
 }
 
 .btn-outline-secondary { /* Copy Button */
-     color: #adb5bd; /* Lighter grey text */
-     border-color: #6c757d;
- }
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 
 .btn-outline-secondary:hover, .btn-outline-secondary:focus, .btn-outline-secondary:active {
-     color: #ffffff;
-     background-color: #6c757d;
-     border-color: #6c757d;
-     box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.5);
- }
+    color: var(--text-light);
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--text-secondary);
+    transform: translateY(-2px);
+}
 
- /* Remove default blue outline on focused buttons */
 .btn:focus {
-    box-shadow: none !important; /* Override Bootstrap's focus shadow if needed, except for our custom ones */
-}
-.btn-primary:focus {
-     box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.5) !important;
-}
-.btn-secondary:focus {
-    box-shadow: 0 0 0 0.25rem rgba(130, 138, 145, 0.5) !important;
-}
-.btn-outline-secondary:focus {
-    box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.5) !important;
+    box-shadow: none;
 }
 
+.btn-primary:focus {
+    box-shadow: 0 0 0 0.25rem rgba(126, 87, 194, 0.4) !important;
+}
 
 /* --- Table --- */
 .table {
-    color: #f8f9fa; /* Base table text color */
-    border-color: #495057; /* Set border color for the table element itself */
+    color: var(--text-light);
+    border-color: var(--border-color);
+    margin-bottom: 0;
 }
 
 /* Header */
 .table thead th {
-    color: #FFC107; /* Yellow header text */
-    background-color: #212529; /* Dark header background */
-    border-color: #495057; /* Match card border */
-    border-bottom-width: 2px;
+    color: var(--primary-light);
+    background-color: rgba(0, 0, 0, 0.2);
+    border-color: var(--border-color);
+    padding: 0.75rem 1rem;
+    font-weight: 600;
 }
 
-/* Body Cells - Increase Specificity and Ensure Color */
-#phraseTable td { /* Target cells specifically within the phrase table body */
-    color: #f8f9fa !important; /* Use !important to override potential conflicts */
-    border-color: #495057; /* Ensure cell borders match */
+/* Body Cells */
+#phraseTable td {
+    color: var(--text-light) !important;
+    border-color: var(--border-color);
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
 }
 
-/* Striping (Adjusted slightly for clarity) */
-.table-striped > tbody > tr:nth-of-type(odd) > td { /* Target TD specifically */
-  background-color: rgba(255, 255, 255, 0.05); /* Subtle striping */
-  /* Text color is handled by #phraseTable td rule above */
-}
-.table-striped > tbody > tr:nth-of-type(even) > td { /* Target TD specifically */
-  background-color: transparent; /* Ensure even rows use the card background */
-   /* Text color is handled by #phraseTable td rule above */
+/* Striping */
+.table-striped > tbody > tr:nth-of-type(odd) > td {
+    background-color: rgba(255, 255, 255, 0.03);
 }
 
+.table-striped > tbody > tr:nth-of-type(even) > td {
+    background-color: transparent;
+}
 
-/* Optional: Style the scrollbar for the table container */
+/* Table hover effect */
+.table-hover tbody tr:hover td {
+    background-color: rgba(126, 87, 194, 0.1);
+}
+
+/* Scrollbar styling */
 .card-body[style*="overflow-y: auto"]::-webkit-scrollbar {
-  width: 8px;
+    width: 6px;
 }
+
 .card-body[style*="overflow-y: auto"]::-webkit-scrollbar-track {
-  background: #343a40;
+    background: var(--dark-surface);
 }
+
 .card-body[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
-  background-color: #6c757d;
-  border-radius: 4px;
-  border: 2px solid #343a40;
+    background-color: var(--primary-light);
+    border-radius: 6px;
+    opacity: 0.7;
+}
+
+.card-body[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
+    background-color: var(--primary-color);
 }
 
 /* --- Error Alert --- */
 #error-alert {
-    background-color: #dc3545;
-    color: #ffffff;
-    border-color: #b02a37;
+    background-color: var(--error-color);
+    color: var(--text-light);
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+}
+
+/* --- Footer --- */
+footer {
+    background-color: var(--dark-bg);
+    border-top: 1px solid var(--border-color);
+    padding: 1rem 0;
+    color: var(--text-secondary);
+}
+
+/* --- Loading States --- */
+.loading {
+    position: relative;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* --- Mobile Optimizations --- */
+@media (max-width: 575.98px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    h4, h5 {
+        font-size: 1.1rem;
+    }
+}
+
+/* --- Additional CSS for new features --- */
+
+/* Background gradient for hero section */
+.bg-gradient-dark {
+    background: linear-gradient(45deg, var(--dark-bg) 0%, var(--primary-dark) 100%);
+    box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+/* Source clear button */
+.btn-clear {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.btn-clear:hover {
+    opacity: 1;
+    color: var(--text-light);
+    transform: scale(1.1);
+}
+
+/* Translation card specific styles */
+.translation-card:hover {
+    transform: translateY(-3px);
+}
+
+/* Swap animation */
+@keyframes swap {
+    0% { transform: translateY(0); opacity: 1; }
+    50% { transform: translateY(8px); opacity: 0; }
+    51% { transform: translateY(-8px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+.swap-animation {
+    animation: swap 0.5s ease;
+}
+
+/* Translation overlay */
+.translation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    color: var(--text-light);
+    z-index: 5;
+}
+
+.translation-overlay p {
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+/* Success highlight animation */
+@keyframes highlight {
+    0% { background-color: rgba(76, 175, 80, 0.2); }
+    100% { background-color: var(--dark-surface-lighter); }
+}
+
+.highlight-success {
+    animation: highlight 1s ease;
+}
+
+/* Light/Dark mode toggle */
+.form-check-input {
+    background-color: var(--dark-surface-lighter);
+    border-color: var(--border-color);
+    width: 2.5rem;
+    height: 1.25rem;
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.form-check-label {
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+/* Light mode styles */
+:root.light-mode {
+    --dark-bg: #f8f9fa;
+    --dark-surface: #ffffff;
+    --dark-surface-lighter: #f1f3f5;
+    --text-light: #343a40;
+    --text-secondary: #6c757d;
+    --border-color: rgba(0, 0, 0, 0.1);
+    --shadow-color: rgba(0, 0, 0, 0.15);
+}
+
+.light-mode body {
+    background-color: var(--dark-bg);
+    color: var(--text-light);
+}
+
+.light-mode .navbar-dark.bg-custom-dark {
+    background-color: var(--primary-color) !important;
+}
+
+.light-mode .navbar-brand,
+.light-mode .nav-link {
+    color: #ffffff !important;
+}
+
+.light-mode .card {
+    box-shadow: 0 4px 6px var(--shadow-color);
+}
+
+.light-mode footer {
+    background-color: var(--dark-bg);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Phrase table action button */
+.action-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Lead text in hero section */
+.lead {
+    color: var(--text-secondary);
+    font-weight: 300;
+    letter-spacing: 0.5px;
+}
+
+/* Links in footer */
+footer a {
+    color: var(--primary-light);
+    transition: color 0.2s ease;
+}
+
+footer a:hover {
+    color: var(--primary-color);
+}
+
+footer h6 {
+    color: var(--primary-light);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+/* Responsive tweaks */
+@media (max-width: 767.98px) {
+    .bg-gradient-dark {
+        padding: 2rem 0;
+    }
+    
+    .main-title {
+        margin: 0.5rem 0;
+    }
+    
+    footer h6 {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Loading spinner color adjustment */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+.js-enabled .card-header,
+.js-enabled .btn,
+.js-enabled textarea.form-control,
+.js-enabled select.form-select {
+    transition: all var(--transition-speed) ease;
 }
