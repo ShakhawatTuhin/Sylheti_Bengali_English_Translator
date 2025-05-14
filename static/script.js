@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const translateButton = document.getElementById('translateBtn');
     const clearButton = document.getElementById('clearBtn');
     const sourceClearButton = document.getElementById('sourceClearBtn');
+    const sourceListenButton = document.getElementById('sourceListenBtn');
     const copyButton = document.getElementById('copyBtn');
     const listenButton = document.getElementById('listenBtn');
     const swapLanguagesButton = document.getElementById('swapLanguagesBtn');
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Store all phrases for search functionality
     let allPhrases = [];
+    let translationTimeout = null;
 
     // --- Function to display errors ---
     function showError(message) {
@@ -185,17 +187,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Function to handle translation ---
-    async function handleTranslate() {
+    // --- Live Translation with Debouncing ---
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Modify handleTranslate to accept a parameter for showing loading UI
+    async function handleTranslate(showLoadingUI = true) {
         const sourceText = sourceTextArea.value;
         const sourceLang = sourceLanguageSelect.value;
         const targetLang = targetLanguageSelect.value;
 
-        targetTextArea.value = ''; // Clear previous translation
         hideError(); // Hide previous errors
 
         if (!sourceText.trim()) {
-            showError('Please enter text to translate!');
+            targetTextArea.value = '';
             return;
         }
 
@@ -204,16 +218,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Show loading state
-        translateButton.disabled = true;
-        translateButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...';
-        
-        // Show the translation overlay
-        if (translationOverlay) {
-            translationOverlay.classList.remove('d-none');
+        // Show loading state only if requested
+        if (showLoadingUI) {
+            translateButton.disabled = true;
+            translateButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...';
+            
+            if (translationOverlay) {
+                translationOverlay.classList.remove('d-none');
+            }
         }
-
-        console.log(`Sending to /translate: text='${sourceText}', source_lang='${sourceLang}', target_lang='${targetLang}'`);
 
         try {
             const response = await fetch('/translate', {
@@ -229,52 +242,160 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            console.log("Response status from /translate:", response.status);
-
-            // Try to parse JSON regardless of status code for more informative errors
             let responseData;
             try {
                 responseData = await response.json();
-                console.log("Received response data:", responseData);
             } catch (jsonError) {
-                // Handle cases where response is not valid JSON (e.g., server crash HTML page)
                 console.error("Failed to parse JSON response:", jsonError);
-                console.error("Response text:", await response.text().catch(() => "Could not get response text."));
                 showError(`Server returned non-JSON response (Status: ${response.status}). Check backend logs.`);
                 return;
             }
 
             if (!response.ok) {
-                // Handle errors reported correctly by the backend API
                 console.error('Translation API Error:', responseData);
                 showError(responseData.error || `Translation failed with status: ${response.status}`);
-            } else {
-                // Success case
-                targetTextArea.value = responseData.translation;
-                
-                // Highlight the result with a brief animation
-                targetTextArea.classList.add('highlight-success');
-                setTimeout(() => {
-                    targetTextArea.classList.remove('highlight-success');
-                }, 1000);
+                return;
             }
 
+            // Update translation with animation
+            targetTextArea.value = responseData.translation;
+            targetTextArea.classList.add('highlight-success');
+            setTimeout(() => targetTextArea.classList.remove('highlight-success'), 1000);
+
         } catch (error) {
-            // Handle network errors
-            console.error('Fetch Error:', error);
-            showError('Network Error: Could not connect to the translation server.');
+            console.error('Translation request failed:', error);
+            showError('Failed to connect to translation service. Please try again.');
         } finally {
-            // Reset UI state
-            translateButton.disabled = false;
-            translateButton.innerHTML = '<i class="bi bi-arrow-right-short me-1"></i> Translate';
-            
-            // Hide the translation overlay
-            if (translationOverlay) {
-                translationOverlay.classList.add('d-none');
+            // Reset UI only if we were showing loading state
+            if (showLoadingUI) {
+                translateButton.disabled = false;
+                translateButton.innerHTML = '<i class="bi bi-arrow-right-short me-1"></i> Translate';
+                
+                if (translationOverlay) {
+                    translationOverlay.classList.add('d-none');
+                }
             }
         }
     }
+
+    // Create debounced version of handleTranslate for live translation
+    const debouncedTranslate = debounce(() => handleTranslate(false), 500);
+
+    // --- Speech Recognition Setup (Dummy) ---
+    let isListening = false;
+
+    function toggleSpeechToText() {
+        if (isListening) {
+            // Stop listening
+            isListening = false;
+            sourceListenButton.innerHTML = '<i class="bi bi-mic"></i>';
+            sourceListenButton.classList.remove('btn-danger');
+            // Simulate stopping speech recognition
+            console.log('Stopped listening');
+        } else {
+            // Start listening
+            isListening = true;
+            sourceListenButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
+            sourceListenButton.classList.add('btn-danger');
+            // Simulate speech recognition
+            console.log('Started listening');
+            setTimeout(() => {
+                // Simulate receiving speech input
+                sourceTextArea.value += " This is a dummy speech recognition result.";
+                toggleSpeechToText(); // Stop listening
+                debouncedTranslate(); // Trigger translation
+            }, 2000);
+        }
+    }
+
+    // --- Text to Speech Setup (Dummy) ---
+    function speakText() {
+        const textToSpeak = targetTextArea.value;
+        if (!textToSpeak) {
+            showError('No text to speak!');
+            return;
+        }
+        
+        // Simulate text-to-speech
+        console.log('Speaking:', textToSpeak);
+        listenButton.disabled = true;
+        listenButton.innerHTML = '<i class="bi bi-volume-up-fill"></i> Speaking...';
+        
+        setTimeout(() => {
+            listenButton.disabled = false;
+            listenButton.innerHTML = '<i class="bi bi-volume-up"></i> Listen';
+            console.log('Finished speaking');
+        }, 2000);
+    }
+
+    // --- Event Listeners ---
+    // Live translation on input
+    sourceTextArea.addEventListener('input', debouncedTranslate);
     
+    // Language selection changes should trigger translation
+    sourceLanguageSelect.addEventListener('change', () => handleTranslate(true));
+    targetLanguageSelect.addEventListener('change', () => handleTranslate(true));
+    
+    // Speech to text button
+    sourceListenButton.addEventListener('click', toggleSpeechToText);
+    
+    // Text to speech button
+    listenButton.addEventListener('click', speakText);
+
+    // Original event listeners
+    translateButton.addEventListener('click', () => handleTranslate(true));
+    clearButton.addEventListener('click', () => {
+        sourceTextArea.value = '';
+        targetTextArea.value = '';
+        hideError();
+    });
+    
+    sourceClearButton.addEventListener('click', () => {
+        sourceTextArea.value = '';
+        targetTextArea.value = '';
+        hideError();
+    });
+
+    if (copyButton) {
+        copyButton.addEventListener('click', () => {
+            const textToCopy = targetTextArea.value;
+            if (textToCopy) {
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => {
+                        // Provide feedback
+                        const originalText = copyButton.innerHTML;
+                        copyButton.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied!';
+                        setTimeout(() => { copyButton.innerHTML = originalText; }, 1500);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy text: ', err);
+                        showError('Failed to copy translation to clipboard.');
+                    });
+            }
+        });
+    }
+    
+    if (swapLanguagesButton) {
+        swapLanguagesButton.addEventListener('click', swapLanguages);
+    }
+
+    // Add enter key support for translation
+    sourceTextArea.addEventListener('keydown', (e) => {
+        // Check if Ctrl+Enter or Cmd+Enter was pressed
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            handleTranslate();
+        }
+    });
+
+    // --- Initial Load ---
+    loadPhrases();
+    
+    // Focus on the source textarea for immediate input
+    sourceTextArea.focus();
+    
+    // Add CSS class for stylesheet effects
+    document.body.classList.add('js-enabled');
+
     // --- Function to swap languages ---
     function swapLanguages() {
         // Get current values
@@ -302,99 +423,10 @@ document.addEventListener('DOMContentLoaded', () => {
             sourceLanguageSelect.classList.remove('swap-animation');
             targetLanguageSelect.classList.remove('swap-animation');
         }, 500);
-    }
-    
-    // --- Text-to-Speech functionality ---
-    function speakText() {
-        const text = targetTextArea.value.trim();
-        if (!text) return;
-        
-        // Check if browser supports speech synthesis
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Set language based on target language
-            const targetLang = targetLanguageSelect.value;
-            if (targetLang === 'english') {
-                utterance.lang = 'en-US';
-            } else if (targetLang === 'bengali' || targetLang === 'sylheti') {
-                utterance.lang = 'bn-IN'; // Bengali language code
-            }
-            
-            window.speechSynthesis.speak(utterance);
-            
-            // Visual feedback
-            listenButton.innerHTML = '<i class="bi bi-volume-up-fill"></i>';
-            setTimeout(() => {
-                listenButton.innerHTML = '<i class="bi bi-volume-up"></i>';
-            }, 1500);
-        } else {
-            showError('Text-to-speech is not supported in your browser.');
+
+        // Trigger translation if needed
+        if (sourceTextArea.value.trim()) {
+            handleTranslate(true);
         }
     }
-
-    // --- Event Listeners ---
-    if (translateButton) {
-        translateButton.addEventListener('click', handleTranslate);
-    }
-
-    if (clearButton) {
-        clearButton.addEventListener('click', () => {
-            sourceTextArea.value = '';
-            targetTextArea.value = '';
-            hideError();
-            sourceTextArea.focus();
-        });
-    }
-    
-    if (sourceClearButton) {
-        sourceClearButton.addEventListener('click', () => {
-            sourceTextArea.value = '';
-            sourceTextArea.focus();
-        });
-    }
-
-    if (copyButton) {
-        copyButton.addEventListener('click', () => {
-            const textToCopy = targetTextArea.value;
-            if (textToCopy) {
-                navigator.clipboard.writeText(textToCopy)
-                    .then(() => {
-                        // Provide feedback
-                        const originalText = copyButton.innerHTML;
-                        copyButton.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied!';
-                        setTimeout(() => { copyButton.innerHTML = originalText; }, 1500);
-                    })
-                    .catch(err => {
-                        console.error('Failed to copy text: ', err);
-                        showError('Failed to copy translation to clipboard.');
-                    });
-            }
-        });
-    }
-    
-    if (swapLanguagesButton) {
-        swapLanguagesButton.addEventListener('click', swapLanguages);
-    }
-    
-    if (listenButton) {
-        listenButton.addEventListener('click', speakText);
-    }
-
-    // Add enter key support for translation
-    sourceTextArea.addEventListener('keydown', (e) => {
-        // Check if Ctrl+Enter or Cmd+Enter was pressed
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            handleTranslate();
-        }
-    });
-
-    // --- Initial Load ---
-    loadPhrases();
-    
-    // Focus on the source textarea for immediate input
-    sourceTextArea.focus();
-    
-    // Add CSS class for stylesheet effects
-    document.body.classList.add('js-enabled');
 });
