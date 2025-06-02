@@ -528,3 +528,68 @@ footer h6 {
 .js-enabled select.form-select {
     transition: all var(--transition-speed) ease;
 }
+
+/* Character Count */
+.char-count {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background-color: var(--dark-surface-lighter);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    opacity: 0.8;
+}
+
+/* Translation History */
+.history-item {
+    background-color: var(--dark-surface-lighter);
+    border: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+    padding: 1rem;
+    border-radius: 8px;
+    transition: all var(--transition-speed) ease;
+}
+
+.history-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.history-item .languages {
+    color: var(--primary-light);
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.history-item .text-pair {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.history-item .source-text,
+.history-item .target-text {
+    flex: 1;
+    font-size: 0.9rem;
+}
+
+.history-item .timestamp {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-align: right;
+}
+
+.history-item .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.history-item .btn-sm {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+}

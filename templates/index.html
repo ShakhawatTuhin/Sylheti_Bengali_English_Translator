@@ -80,6 +80,7 @@
                         <div class="mb-3 flex-grow-1">
                              <div class="position-relative">
                                 <textarea class="form-control h-100" id="sourceText" placeholder="Enter text to translate..."></textarea>
+                                <div class="char-count" id="sourceCharCount">0 characters</div>
                                 <button id="sourceClearBtn" class="btn-clear" title="Clear text">
                                     <i class="bi bi-x-circle"></i>
                                 </button>
@@ -123,6 +124,7 @@
                         <div class="mb-3 flex-grow-1">
                             <div class="position-relative">
                                 <textarea class="form-control h-100" id="targetText" placeholder="Translation will appear here..." readonly></textarea>
+                                <div class="char-count" id="targetCharCount">0 characters</div>
                                 <div class="translation-overlay d-none">
                                     <div class="spinner-border text-light" role="status">
                                         <span class="visually-hidden">Translating...</span>
@@ -143,6 +145,21 @@
                 </div>
                 <div id="error-alert" class="alert alert-danger mt-4 d-none" role="alert">
                    <!-- Error messages will be shown here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Translation History Section -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-clock-history me-2"></i>Translation History</h5>
+                <button class="btn btn-sm btn-outline-secondary" id="clearHistoryBtn">
+                    <i class="bi bi-trash me-1"></i>Clear History
+                </button>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <div id="historyList" class="list-group list-group-flush">
+                    <!-- History items will be added here by JavaScript -->
                 </div>
             </div>
         </div>

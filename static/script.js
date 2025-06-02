@@ -21,10 +21,110 @@ document.addEventListener('DOMContentLoaded', () => {
     const phraseSearch = document.getElementById('phraseSearch');
     const phraseSearchBtn = document.getElementById('phraseSearchBtn');
     const translationOverlay = document.querySelector('.translation-overlay');
+    const historyList = document.getElementById('historyList');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const sourceCharCount = document.getElementById('sourceCharCount');
+    const targetCharCount = document.getElementById('targetCharCount');
 
     // Store all phrases for search functionality
     let allPhrases = [];
     let translationTimeout = null;
+    let translationHistory = JSON.parse(localStorage.getItem('translationHistory') || '[]');
+
+    // --- Character Count Functions ---
+    function updateCharCount(textarea, countElement) {
+        const count = textarea.value.length;
+        countElement.textContent = `${count} character${count !== 1 ? 's' : ''}`;
+    }
+
+    // Update character counts on input
+    sourceTextArea.addEventListener('input', () => updateCharCount(sourceTextArea, sourceCharCount));
+    targetTextArea.addEventListener('input', () => updateCharCount(targetTextArea, targetCharCount));
+
+    // --- Translation History Functions ---
+    function addToHistory(sourceText, targetText, sourceLang, targetLang) {
+        const historyItem = {
+            sourceText,
+            targetText,
+            sourceLang,
+            targetLang,
+            timestamp: new Date().toISOString()
+        };
+
+        translationHistory.unshift(historyItem); // Add to beginning
+        if (translationHistory.length > 50) { // Keep only last 50 translations
+            translationHistory.pop();
+        }
+
+        localStorage.setItem('translationHistory', JSON.stringify(translationHistory));
+        displayHistory();
+    }
+
+    function displayHistory() {
+        if (!historyList) return;
+
+        historyList.innerHTML = '';
+        if (translationHistory.length === 0) {
+            historyList.innerHTML = '<div class="text-center text-secondary p-3">No translation history yet</div>';
+            return;
+        }
+
+        translationHistory.forEach((item, index) => {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.innerHTML = `
+                <div class="languages">
+                    ${item.sourceLang.toUpperCase()} → ${item.targetLang.toUpperCase()}
+                </div>
+                <div class="text-pair">
+                    <div class="source-text">${item.sourceText}</div>
+                    <div class="target-text">${item.targetText}</div>
+                </div>
+                <div class="timestamp">
+                    ${new Date(item.timestamp).toLocaleString()}
+                </div>
+                <div class="actions">
+                    <button class="btn btn-sm btn-outline-secondary reuse-btn">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reuse
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-btn">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+
+            // Add event listeners for history item buttons
+            const reuseBtn = historyItem.querySelector('.reuse-btn');
+            const deleteBtn = historyItem.querySelector('.delete-btn');
+
+            reuseBtn.addEventListener('click', () => {
+                sourceLanguageSelect.value = item.sourceLang;
+                targetLanguageSelect.value = item.targetLang;
+                sourceTextArea.value = item.sourceText;
+                updateCharCount(sourceTextArea, sourceCharCount);
+                handleTranslate(true);
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                translationHistory.splice(index, 1);
+                localStorage.setItem('translationHistory', JSON.stringify(translationHistory));
+                displayHistory();
+            });
+
+            historyList.appendChild(historyItem);
+        });
+    }
+
+    // Clear history button
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all translation history?')) {
+                translationHistory = [];
+                localStorage.setItem('translationHistory', JSON.stringify(translationHistory));
+                displayHistory();
+            }
+        });
+    }
 
     // --- Function to display errors ---
     function showError(message) {
@@ -83,18 +183,29 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/phrases');
             if (!response.ok) {
-                console.error("Failed to load phrases:", response.status, await response.text());
+                console.error("Failed to load phrases:", response.status);
                 phraseTableBody.innerHTML = '<tr><td colspan="4" class="text-danger">Could not load phrases.</td></tr>';
                 return;
             }
             
-            allPhrases = await response.json();
-            displayPhrases(allPhrases);
+            const data = await response.json();
             
-            console.log("Phrases loaded.");
+            // Check if data is an array and has items
+            if (Array.isArray(data)) {
+                allPhrases = data;
+                if (data.length === 0) {
+                    phraseTableBody.innerHTML = '<tr><td colspan="4" class="text-center">No phrases available in the database.</td></tr>';
+                } else {
+                    displayPhrases(allPhrases);
+                }
+            } else {
+                console.error("Invalid data format received:", data);
+                phraseTableBody.innerHTML = '<tr><td colspan="4" class="text-danger">Invalid data format received from server.</td></tr>';
+            }
+            
         } catch (error) {
             console.error("Error loading phrases:", error);
-            phraseTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error connecting to server to load phrases.</td></tr>';
+            phraseTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error connecting to server. Please try refreshing the page.</td></tr>';
         }
     }
     
@@ -102,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayPhrases(phrases) {
         phraseTableBody.innerHTML = ''; // Clear previous entries
 
-        if (phrases.length === 0) {
+        if (!Array.isArray(phrases) || phrases.length === 0) {
             phraseTableBody.innerHTML = '<tr><td colspan="4" class="text-center">No phrases found.</td></tr>';
             return;
         }
@@ -111,15 +222,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('tr');
             
             const sylCell = document.createElement('td');
-            sylCell.textContent = phrase.SylhetiText;
+            sylCell.textContent = phrase.SylhetiText || '';
             row.appendChild(sylCell);
             
             const benCell = document.createElement('td');
-            benCell.textContent = phrase.BengaliText;
+            benCell.textContent = phrase.BengaliText || '';
             row.appendChild(benCell);
             
             const engCell = document.createElement('td');
-            engCell.textContent = phrase.EnglishText;
+            engCell.textContent = phrase.EnglishText || '';
             row.appendChild(engCell);
             
             // Add action buttons cell
@@ -136,17 +247,23 @@ document.addEventListener('DOMContentLoaded', () => {
             useButton.addEventListener('click', () => {
                 // Determine source language and fill textarea
                 const sourceLanguage = sourceLanguageSelect.value;
+                let textToUse = '';
                 
                 if (sourceLanguage === 'sylheti') {
-                    sourceTextArea.value = phrase.SylhetiText;
+                    textToUse = phrase.SylhetiText;
                 } else if (sourceLanguage === 'bengali') {
-                    sourceTextArea.value = phrase.BengaliText;
+                    textToUse = phrase.BengaliText;
                 } else if (sourceLanguage === 'english') {
-                    sourceTextArea.value = phrase.EnglishText;
+                    textToUse = phrase.EnglishText;
                 }
                 
-                // Scroll to translator section
-                document.querySelector('.translation-card').scrollIntoView({ behavior: 'smooth' });
+                if (textToUse) {
+                    sourceTextArea.value = textToUse;
+                    updateCharCount(sourceTextArea, sourceCharCount);
+                    handleTranslate(true);
+                    // Scroll to translator section
+                    document.querySelector('.translation-card').scrollIntoView({ behavior: 'smooth' });
+                }
             });
             
             actionsCell.appendChild(useButton);
@@ -206,10 +323,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceLang = sourceLanguageSelect.value;
         const targetLang = targetLanguageSelect.value;
 
-        hideError(); // Hide previous errors
+        hideError();
 
         if (!sourceText.trim()) {
             targetTextArea.value = '';
+            updateCharCount(targetTextArea, targetCharCount);
             return;
         }
 
@@ -218,11 +336,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Show loading state only if requested
         if (showLoadingUI) {
-            translateButton.disabled = true;
-            translateButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...';
-            
+            if (translateButton) {
+                translateButton.disabled = true;
+                translateButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...';
+            }
             if (translationOverlay) {
                 translationOverlay.classList.remove('d-none');
             }
@@ -257,27 +375,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Update translation with animation
             targetTextArea.value = responseData.translation;
+            updateCharCount(targetTextArea, targetCharCount);
             targetTextArea.classList.add('highlight-success');
             setTimeout(() => targetTextArea.classList.remove('highlight-success'), 1000);
+
+            // Add to history
+            addToHistory(sourceText, responseData.translation, sourceLang, targetLang);
 
         } catch (error) {
             console.error('Translation request failed:', error);
             showError('Failed to connect to translation service. Please try again.');
         } finally {
-            // Reset UI only if we were showing loading state
             if (showLoadingUI) {
-                translateButton.disabled = false;
-                translateButton.innerHTML = '<i class="bi bi-arrow-right-short me-1"></i> Translate';
-                
+                if (translateButton) {
+                    translateButton.disabled = false;
+                    translateButton.innerHTML = '<i class="bi bi-arrow-right-short me-1"></i> Translate';
+                }
                 if (translationOverlay) {
                     translationOverlay.classList.add('d-none');
                 }
             }
         }
     }
-
+    
     // Create debounced version of handleTranslate for live translation
     const debouncedTranslate = debounce(() => handleTranslate(false), 500);
 
@@ -307,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 2000);
         }
     }
-
+    
     // --- Text to Speech Setup (Dummy) ---
     function speakText() {
         const textToSpeak = targetTextArea.value;
@@ -321,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
         listenButton.disabled = true;
         listenButton.innerHTML = '<i class="bi bi-volume-up-fill"></i> Speaking...';
         
-        setTimeout(() => {
+            setTimeout(() => {
             listenButton.disabled = false;
             listenButton.innerHTML = '<i class="bi bi-volume-up"></i> Listen';
             console.log('Finished speaking');
@@ -344,17 +465,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Original event listeners
     translateButton.addEventListener('click', () => handleTranslate(true));
-    clearButton.addEventListener('click', () => {
-        sourceTextArea.value = '';
-        targetTextArea.value = '';
-        hideError();
-    });
+        clearButton.addEventListener('click', () => {
+            sourceTextArea.value = '';
+            targetTextArea.value = '';
+            hideError();
+        });
     
-    sourceClearButton.addEventListener('click', () => {
-        sourceTextArea.value = '';
+        sourceClearButton.addEventListener('click', () => {
+            sourceTextArea.value = '';
         targetTextArea.value = '';
         hideError();
-    });
+        });
 
     if (copyButton) {
         copyButton.addEventListener('click', () => {
@@ -387,13 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Initial Load ---
+    // --- Initial Setup ---
     loadPhrases();
-    
-    // Focus on the source textarea for immediate input
+    displayHistory();
+    updateCharCount(sourceTextArea, sourceCharCount);
+    updateCharCount(targetTextArea, targetCharCount);
     sourceTextArea.focus();
-    
-    // Add CSS class for stylesheet effects
     document.body.classList.add('js-enabled');
 
     // --- Function to swap languages ---
@@ -412,6 +532,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetText.trim()) {
             sourceTextArea.value = targetText;
             targetTextArea.value = sourceText;
+            // Update character counts
+            updateCharCount(sourceTextArea, sourceCharCount);
+            updateCharCount(targetTextArea, targetCharCount);
         }
         
         // Add animation classes
@@ -424,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetLanguageSelect.classList.remove('swap-animation');
         }, 500);
 
-        // Trigger translation if needed
+        // Always trigger translation if there's text
         if (sourceTextArea.value.trim()) {
             handleTranslate(true);
         }
