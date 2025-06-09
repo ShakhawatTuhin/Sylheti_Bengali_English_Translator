@@ -7,211 +7,176 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 LOADED_MODELS = {}
 
-# ===>>> NEW MODEL_PATHS using Hugging Face Hub identifiers <<<===
-HF_USERNAME = "ShakhawatTuhin" # Replace with your actual HF username
+HF_USERNAME = "ShakhawatTuhin" # Your HF username
 
+# Define MODEL_PATHS. For each entry, the value is the model identifier.
+# If it's a Hugging Face Hub ID, use "username/repo_name".
+# If it's a local path, use a relative path like "../models/your_model_dir".
 MODEL_PATHS = {
-    ("sylheti", "bengali"): f"{HF_USERNAME}/sylheti_translator_sy_bn_1396", # Default best Sy->Bn
-    # ("sylheti", "bengali", "899"): f"{HF_USERNAME}/sylheti_translator_sy_bn_899", # For specific selection if needed
+    # --- SYLHETI AS SOURCE ---
+    ("sylheti", "bengali"): f"{HF_USERNAME}/sylheti_translator_sy_bn_1396",
+    # For local test: ("sylheti", "bengali"): "../models/sy_bn_1396",
 
-    ("sylheti", "english"): f"{HF_USERNAME}/sylheti_translator_sy_en_1396", # Default best Sy->En
-    # ("sylheti", "english", "899"): f"{HF_USERNAME}/sylheti_translator_sy_en_899", # For specific selection
+    ("sylheti", "english"): f"{HF_USERNAME}/sylheti_translator_sy_en_1396",
+    # For local test: ("sylheti", "english"): "../models/sy_en_1396",
 
-    # Add Bn->Sy, En->Sy if you train and upload them
-    # ("bengali", "sylheti"): f"{HF_USERNAME}/sylheti-translator-bn-sy-XXXX",
-    # ("english", "sylheti"): f"{HF_USERNAME}/sylheti-translator-en-sy-XXXX",
+    # --- SYLHETI AS TARGET ---
+    ("bengali", "sylheti"): "../models/bn_sy_1396",  # Using local relative path
+
+    # ("bengali", "sylheti"): f"{HF_USERNAME}/sylheti_translator_bn_sy_1396",
+    # For local test: ("bengali", "sylheti"): "../models/bn_sy_1396", # <-- Currently active for testing
+
+    ("english", "sylheti"): f"{HF_USERNAME}/sylheti_translator_en_sy_1396",
+    # For local test: ("english", "sylheti"): "../models/en_sy_1396",
 }
-# =================================================================
 
-def _load_model_and_tokenizer(model_identifier):
+# --- Helper Function to Load a Single Model ---
+def _load_model_and_tokenizer(model_path_or_hub_id, direction_key_for_logging="N/A"):
     """
-    Loads a single model and tokenizer FROM HUGGING FACE HUB IDENTIFIER.
-    Handles GPU placement if available.
+    Loads a single model and tokenizer.
+    It intelligently tries to load as a local path first if it looks like one,
+    otherwise assumes it's a Hugging Face Hub identifier.
     """
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    model_to_load = model_path_or_hub_id
+    attempt_type = "Hugging Face Hub" # Default assumption
+
+    # Heuristic: If it starts with '../' or './' or contains os path separators,
+    # treat it as a potential local path first.
+    if model_path_or_hub_id.startswith(("../", "./")) or \
+       os.path.sep in model_path_or_hub_id or \
+       (os.altsep and os.altsep in model_path_or_hub_id):
+
+        potential_local_path = os.path.abspath(os.path.join(current_script_dir, model_path_or_hub_id))
+        print(f"({direction_key_for_logging}) Path '{model_path_or_hub_id}' looks like a local path. Resolved to: {potential_local_path}")
+        if os.path.isdir(potential_local_path):
+            model_to_load = potential_local_path
+            attempt_type = "LOCAL"
+            print(f"({direction_key_for_logging}) Found local directory. Attempting to load from: {model_to_load}")
+        else:
+            print(f"({direction_key_for_logging}) WARNING: Local path '{potential_local_path}' not found as a directory. Will attempt '{model_path_or_hub_id}' as a Hub ID.")
+            # model_to_load remains model_path_or_hub_id, attempt_type remains Hub
+    else:
+        print(f"({direction_key_for_logging}) Assuming '{model_path_or_hub_id}' is a Hugging Face Hub identifier.")
+
     try:
-        print(f"Attempting to load model from Hugging Face Hub: {model_identifier}")
-        # AutoTokenizer and AutoModelForSeq2SeqLM will automatically download
-        # from the Hub if the identifier is valid and public (or you're logged in for private).
-        tokenizer = AutoTokenizer.from_pretrained(model_identifier)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_identifier)
+        print(f"({direction_key_for_logging}) Attempting to load via transformers from: '{model_to_load}' (as {attempt_type})")
+        tokenizer = AutoTokenizer.from_pretrained(model_to_load)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_to_load)
         model.eval()
 
         if torch.cuda.is_available():
             model.to('cuda')
-            print(f"Model '{model_identifier}' moved to GPU.")
+            print(f"({direction_key_for_logging}) Model '{model_path_or_hub_id}' moved to GPU.")
         else:
-            print(f"GPU not available, Model '{model_identifier}' using CPU.")
+            print(f"({direction_key_for_logging}) GPU not available, Model '{model_path_or_hub_id}' using CPU.")
 
-        print(f"Successfully loaded: '{model_identifier}' from Hugging Face Hub.")
+        print(f"({direction_key_for_logging}) Successfully loaded '{model_path_or_hub_id}' (from source: {model_to_load} as {attempt_type}).")
         return model, tokenizer
 
     except Exception as e:
-        print(f"ERROR: Failed to load model/tokenizer from Hugging Face Hub '{model_identifier}': {e}")
+        print(f"ERROR ({direction_key_for_logging}): Failed to load model/tokenizer from '{model_to_load}' (intended as {attempt_type}). Error: {e}")
+        # If the determined attempt (e.g. local) failed, and model_to_load is different from model_path_or_hub_id,
+        # it means our local path resolution failed. We could try the original as a Hub ID if it's not what we just tried.
+        # This can get complex, for now, the primary attempt based on heuristic is logged.
+        # If attempt_type was "LOCAL" and it failed, and model_path_or_hub_id doesn't look like a path,
+        # one could add a secondary attempt here to load model_path_or_hub_id from Hub.
+        # For simplicity now, if the primary determined path fails, it fails for this function call.
         print(traceback.format_exc())
         return None, None
 
-# ... (rest of your translator.py, load_all_models and translate function remain largely the same) ...
-# The _load_model_and_tokenizer function is the main part that changes.
-# The check for local paths in _load_model_and_tokenizer can be removed.
-
-# --- Helper Function to Load a Single Model ---
-def _load_model_and_tokenizer(model_identifier):
-    """
-    Loads a single model and tokenizer from a local path or Hugging Face Hub identifier.
-    Handles GPU placement if available.
-    """
-    try:
-        # Check if it's potentially a local path relative to this script
-        is_local_path = model_identifier.startswith("../") or os.path.exists(model_identifier)
-
-        model_path_or_name = model_identifier
-        if is_local_path:
-            # Build the absolute path if it's relative
-            current_script_dir = os.path.dirname(os.path.abspath(__file__))
-            model_path_or_name = os.path.abspath(os.path.join(current_script_dir, model_identifier))
-            print(f"Attempting to load local model from resolved path: {model_path_or_name}")
-            if not os.path.isdir(model_path_or_name):
-                print(f"WARNING: Local model directory not found: {model_path_or_name}. Skipping load.")
-                return None, None
-        else:
-            print(f"Attempting to load model from Hugging Face Hub: {model_path_or_name}")
-
-        # Load tokenizer and model
-        tokenizer = AutoTokenizer.from_pretrained(model_path_or_name)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_path_or_name)
-        model.eval() # Set to evaluation mode
-
-        # --- GPU Check and Placement ---
-        if torch.cuda.is_available():
-            model.to('cuda')
-            print(f"Model '{model_identifier}' moved to GPU.")
-        else:
-            # --- CORRECTED print statement ---
-            print(f"GPU not available, Model '{model_identifier}' using CPU.")
-            # ------------------------------
-        # --- End GPU Check ---
-
-        print(f"Successfully loaded: '{model_identifier}'")
-        return model, tokenizer
-
-    except Exception as e:
-        print(f"ERROR: Failed to load model/tokenizer from '{model_identifier}': {e}")
-        print(traceback.format_exc()) # Print full traceback for debugging
-        return None, None
 
 # --- Function to Load All Defined Models ---
 def load_all_models():
-    """
-    Loads all models defined in MODEL_PATHS into the global LOADED_MODELS dict.
-    This should be called once when the application starts (i.e., when this module is imported).
-    """
-    global LOADED_MODELS # Ensure we are modifying the global dictionary
+    global LOADED_MODELS
     print("\n--- Loading all translation models ---")
     if LOADED_MODELS:
-        print("Models appear to be already loaded. Skipping.")
-        return # Avoid reloading if called multiple times
+        print("Models appear to be already loaded or an attempt was made. Skipping reload. Restart app to force reload.")
+        return
 
     available_directions = []
-    for direction, path_or_name in MODEL_PATHS.items():
-        print(f"\nLoading model for direction: {direction[0]} -> {direction[1]}")
-        model, tokenizer = _load_model_and_tokenizer(path_or_name)
-        if model and tokenizer:
-            LOADED_MODELS[direction] = (model, tokenizer)
-            available_directions.append(f"{direction[0]}->{direction[1]}")
+    for direction_key, path_or_hub_id_from_config in MODEL_PATHS.items():
+        # Ensure direction_key is a tuple of two strings for logging
+        if isinstance(direction_key, tuple) and len(direction_key) == 2:
+            direction_str = f"{direction_key[0]} -> {direction_key[1]}"
         else:
-             print(f"--> FAILED to load model for direction {direction[0]} -> {direction[1]}")
+            direction_str = str(direction_key) # Fallback if key is not as expected
+
+        print(f"\nLoading model for direction: {direction_str} (Configured as: '{path_or_hub_id_from_config}')")
+        model, tokenizer = _load_model_and_tokenizer(path_or_hub_id_from_config, direction_key_for_logging=direction_str)
+
+        if model and tokenizer:
+            LOADED_MODELS[direction_key] = (model, tokenizer)
+            available_directions.append(direction_str)
+        else:
+            print(f"--> FAILED to load model for direction {direction_str}")
 
     print("\n--------------------------------------")
     if available_directions:
         print(f"Finished loading models. Available translation directions: {', '.join(available_directions)}")
     else:
-        print("WARNING: No translation models were successfully loaded.")
+        print("CRITICAL WARNING: No translation models were successfully loaded.")
     print("--------------------------------------\n")
 
-# --- Main Translation Function ---
+
+# --- Main Translation Function --- (This should remain largely unchanged from your working version)
 def translate(text: str, source_lang: str, target_lang: str) -> str:
-    """
-    Translates text using the appropriate loaded fine-tuned model
-    based on the source and target language codes.
-
-    Args:
-        text (str): The text to translate.
-        source_lang (str): The source language key (e.g., 'sylheti').
-        target_lang (str): The target language key (e.g., 'bengali').
-
-    Returns:
-        str: The translated text, or an error message starting with "Error:".
-    """
     direction = (source_lang, target_lang)
     print(f"\n--- Attempting translation: {source_lang} -> {target_lang} ---")
     print(f"--- Input text: '{text}'")
 
-    # Check if the required model direction is loaded
     if direction not in LOADED_MODELS:
         error_msg = f"Error: Translation direction ({source_lang} -> {target_lang}) not supported or its model failed to load."
-        available = list(LOADED_MODELS.keys())
+        available = [f"{k[0]}->{k[1]}" for k in LOADED_MODELS.keys() if isinstance(k, tuple) and len(k) == 2]
         if available:
-             error_msg += f" Available directions: {available}"
+             error_msg += f" Available directions: {', '.join(available)}"
         else:
              error_msg += " No models loaded successfully."
         print(f"--- ERROR: {error_msg} ---")
         return error_msg
 
-    # Retrieve the correct model and tokenizer
     model, tokenizer = LOADED_MODELS[direction]
 
-    # Basic input validation
     if not text or not isinstance(text, str) or not text.strip():
         print("--- Input text is empty or invalid. Returning empty string. ---")
         return ""
-
-    # Perform the translation
     try:
         print(f"--- Using model for {direction}...")
-        print(f"--- Preparing input for model...")
-        # Ensure tokenizer settings match training (padding, truncation, max_length)
-        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=128) # Use consistent max_length
-
-        # Move input tensors to the same device as the model (CPU or GPU)
-        device = model.device # Get the device the model is actually on
+        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=128)
+        device = model.device
         inputs = {k: v.to(device) for k, v in inputs.items()}
         print(f"--- Input tensors moved to device: {device} ---")
-
         print(f"--- Calling model.generate...")
-        with torch.no_grad(): # Disable gradient calculation for inference
+        with torch.no_grad():
             translated_ids = model.generate(
                 inputs['input_ids'],
                 attention_mask=inputs['attention_mask'],
-                max_length=128,    # Match training/tokenization setting
-                num_beams=4,       # Beam search can improve quality
-                early_stopping=True # Stop generation early if EOS token is reached
+                max_length=128,
+                num_beams=4,
+                early_stopping=True
             )
-
         print(f"--- Decoding model output...")
         translation = tokenizer.decode(translated_ids[0], skip_special_tokens=True)
         print(f"--- Inference successful for {direction}. Returning: '{translation}'")
         return translation
-
     except Exception as e:
         print(f"--- ERROR during model inference for {direction} with input '{text}': {e}")
-        print(traceback.format_exc()) # Log the full error for debugging
+        print(traceback.format_exc())
         return f"Error: Translation failed internally for direction {direction}."
 
+
 # --- Trigger Model Loading on Import ---
-# This ensures models are loaded when routes.py imports this module
-if __name__ != '__main__': # Only run load_all_models when imported, not if script is run directly
+if __name__ != '__main__':
     load_all_models()
 else:
-    # Optional: Add test code here if you want to run translator.py directly
     print("Running translator.py directly (for testing purposes only).")
-    # Make sure models are loaded if run directly too
     if not LOADED_MODELS:
          load_all_models()
-    # Example test (requires models to be loaded)
-    if ("sylheti", "bengali") in LOADED_MODELS:
-         test_text = "মুই বাড়িত যাই"
-         print(f"\nTesting Sylheti -> Bengali with: '{test_text}'")
-         result = translate(test_text, "sylheti", "bengali")
+    # Example test
+    if ("bengali", "sylheti") in LOADED_MODELS: # Test a direction you expect to work
+         test_text = "আমি ভাত খাই" # Example Bengali
+         print(f"\nTesting Bengali -> Sylheti with: '{test_text}'")
+         result = translate(test_text, "bengali", "sylheti")
          print(f"Result: {result}")
     else:
-         print("\nSylheti->Bengali model not loaded, skipping direct test.")
+         print("\nBengali->Sylheti model not loaded, skipping direct test.")
