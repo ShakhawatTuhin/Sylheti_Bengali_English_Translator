@@ -4,6 +4,8 @@ from flask import Blueprint, request, jsonify, render_template
 from config import db # Database interaction needed for other routes
 from models import Phrase, Speaker, AudioFile # Models needed for other routes
 import traceback # For logging detailed errors if needed
+import os # For file operations
+import uuid # For generating unique filenames
 
 # --- Import the unified translation function ---
 # Assumes your inference script is now named 'translator.py'
@@ -29,6 +31,25 @@ except Exception as e:
      print(traceback.format_exc())
      def translate(text, source_lang, target_lang):
          return f"Error: Unexpected error loading translation module ({type(e).__name__})."
+
+# --- Import the speech recognition function ---
+try:
+    from scripts.speech_recognizer import transcribe_audio
+    print("Successfully imported 'transcribe_audio' from scripts.speech_recognizer")
+except ImportError:
+    print("--------------------------------------------------------------------")
+    print("WARNING: Could not import 'transcribe_audio' from scripts.speech_recognizer.")
+    print("Ensure speech_recognizer.py exists and has the transcribe_audio function.")
+    print("Speech-to-Text API endpoint (/stt) will return an error.")
+    print("--------------------------------------------------------------------")
+    def transcribe_audio(audio_path):
+        print(f"ERROR: Attempted to call dummy transcribe_audio function for {audio_path}")
+        return "Error: Speech-to-Text module failed to load on server startup."
+except Exception as e:
+     print(f"An unexpected error occurred during import from scripts.speech_recognizer: {e}")
+     print(traceback.format_exc())
+     def transcribe_audio(audio_path):
+         return f"Error: Unexpected error loading speech recognition module ({type(e).__name__})."
 
 
 # --- Create the Blueprint (Define only ONCE) ---
@@ -112,6 +133,79 @@ def translate_text_api():
         print(traceback.format_exc())
         return jsonify({"error": f"{endpoint_error_prefix} An internal server error occurred during translation."}), 500
     # --- End Call to translation function ---
+
+
+# --- NEW Speech-to-Text (STT) API Endpoint ---
+@routes_bp.route("/stt", methods=["POST"])
+def speech_to_text_api():
+    """
+    Receives an audio file and returns its transcription.
+    Expects audio file in 'audio_file' field of form-data.
+    """
+    print(f"\n--- ENTERING /stt route ---")
+    endpoint_error_prefix = "API Error:" # Consistent prefix for user-facing errors from this endpoint
+
+    # 1. Check for audio file in request
+    if 'audio_file' not in request.files:
+        print(f"--- Route Error: 'audio_file' not in request.files ---")
+        return jsonify({"error": f"{endpoint_error_prefix} No audio file provided"}), 400
+
+    audio_file = request.files['audio_file']
+
+    # 2. Check if filename is empty (no file selected by user)
+    if audio_file.filename == '':
+        print(f"--- Route Error: No selected file ---")
+        return jsonify({"error": f"{endpoint_error_prefix} No selected audio file"}), 400
+
+    # --- ADD THIS LINE ---
+    source_language = request.form.get("source_language", "sylheti") # Default to sylheti
+    # --------------------
+
+    if audio_file:
+        # Ensure a temporary directory exists
+        temp_dir = "temp_audio_uploads"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Generate a unique filename to avoid conflicts
+        unique_filename = f"{uuid.uuid4()}_{audio_file.filename}"
+        temp_filepath = os.path.join(temp_dir, unique_filename)
+
+        try:
+            # Save the uploaded file temporarily
+            audio_file.save(temp_filepath)
+            print(f"--- Saved uploaded audio to: {temp_filepath} ---")
+
+            # Call the transcription function
+            print(f"--- Route calling speech_recognizer.transcribe_audio function... ---")
+            
+            # --- MODIFY THIS LINE ---
+            transcription_result = transcribe_audio(temp_filepath, source_language=source_language)
+            # ------------------------
+
+            print(f"--- Route received result from speech_recognizer: '{transcription_result}' ---")
+
+            # Check if the transcriber function itself returned an error string
+            if isinstance(transcription_result, str) and transcription_result.startswith("Error:"):
+                 print(f"--- Route reporting error from speech_recognizer module ---")
+                 status_code = 500 # Assume internal error for now
+                 return jsonify({"error": transcription_result}), status_code
+
+            # Success Case
+            print(f"--- Route returning successful transcription ---")
+            return jsonify({"transcription": transcription_result})
+
+        except Exception as e:
+            print(f"--- UNEXPECTED ERROR in /stt route during audio processing: {e} ---")
+            print(traceback.format_exc())
+            return jsonify({"error": f"{endpoint_error_prefix} An internal server error occurred during transcription."}), 500
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+                print(f"--- Cleaned up temporary file: {temp_filepath} ---")
+    print(f"--- Leaving /stt route ---\n")
+    # If for some reason audio_file was not present (should be caught by initial checks)
+    return jsonify({"error": f"{endpoint_error_prefix} Unexpected error processing audio file."}), 500
 
 
 # === Database Management Routes (Keep these as they are) ===

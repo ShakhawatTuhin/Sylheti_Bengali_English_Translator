@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let allPhrases = [];
     let translationTimeout = null;
     let translationHistory = JSON.parse(localStorage.getItem('translationHistory') || '[]');
+    let isListening = false;
+    let recordingStartTime;
 
     // --- Character Count Functions ---
     function updateCharCount(textarea, countElement) {
@@ -402,33 +404,111 @@ document.addEventListener('DOMContentLoaded', () => {
     // Create debounced version of handleTranslate for live translation
     const debouncedTranslate = debounce(() => handleTranslate(false), 500);
 
-    // --- Speech Recognition Setup (Dummy) ---
-    let isListening = false;
+    // --- Speech Recognition Setup (Real) ---
+    let mediaRecorder;
+    let audioChunks = [];
 
-    function toggleSpeechToText() {
-        if (isListening) {
-            // Stop listening
+    // Function to handle microphone data
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            isListening = true;
+            sourceListenButton.innerHTML = '<i class="bi bi-mic-fill"></i> Recording...';
+            sourceListenButton.classList.add('btn-danger');
+            console.log('Started recording audio...');
+            recordingStartTime = Date.now();
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const duration = Date.now() - recordingStartTime;
+                if (duration < 1000) { // Enforce a minimum recording time of 1 second
+                    showError("Recording is too short. Please hold the button and speak for at least a second.");
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
+
+                if (audioChunks.length === 0) {
+                    console.warn("No audio data recorded.");
+                    showError("No audio was recorded. Please ensure your microphone is working and you speak clearly.");
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Changed to webm
+                sendAudioToBackend(audioBlob);
+                // Stop all tracks in the stream after recording finishes
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            showError('Microphone access denied or error: ' + error.message);
             isListening = false;
             sourceListenButton.innerHTML = '<i class="bi bi-mic"></i>';
             sourceListenButton.classList.remove('btn-danger');
-            // Simulate stopping speech recognition
-            console.log('Stopped listening');
-        } else {
-            // Start listening
-            isListening = true;
-            sourceListenButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
-            sourceListenButton.classList.add('btn-danger');
-            // Simulate speech recognition
-            console.log('Started listening');
-            setTimeout(() => {
-                // Simulate receiving speech input
-                sourceTextArea.value += " This is a dummy speech recognition result.";
-                toggleSpeechToText(); // Stop listening
-                debouncedTranslate(); // Trigger translation
-            }, 2000);
         }
     }
-    
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            isListening = false;
+            sourceListenButton.innerHTML = '<i class="bi bi-mic"></i>';
+            sourceListenButton.classList.remove('btn-danger');
+            sourceTextArea.value = 'Transcribing...'; // Give immediate feedback
+            console.log('Stopped recording audio.');
+        }
+    }
+
+    async function sendAudioToBackend(audioBlob) {
+        console.log('Sending audio to backend...', audioBlob);
+        sourceTextArea.value = 'Transcribing...'; // Provide immediate feedback
+
+        const formData = new FormData();
+        formData.append('audio_file', audioBlob, 'recording.webm'); // Changed filename extension
+        formData.append('source_language', sourceLanguageSelect.value);
+
+        try {
+            const response = await fetch('/stt', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const responseData = await response.json();
+
+            if (!response.ok) {
+                console.error('STT API Error:', responseData);
+                showError(responseData.error || `Speech-to-Text failed with status: ${response.status}`);
+                sourceTextArea.value = ''; // Clear transcription status on error
+                return;
+            }
+
+            sourceTextArea.value = responseData.transcription;
+            updateCharCount(sourceTextArea, sourceCharCount);
+            debouncedTranslate(); // Trigger translation with the new transcription
+
+        } catch (error) {
+            console.error('STT request failed:', error);
+            showError('Failed to connect to speech recognition service. Please try again.');
+            sourceTextArea.value = ''; // Clear transcription status on error
+        }
+    }
+
+    function toggleSpeechToText() {
+        if (isListening) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }
+
     // --- Text to Speech Setup (Dummy) ---
     function speakText() {
         const textToSpeak = targetTextArea.value;
