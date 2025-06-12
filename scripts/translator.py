@@ -123,7 +123,11 @@ def load_all_models():
 def translate(text: str, source_lang: str, target_lang: str) -> str:
     direction = (source_lang, target_lang)
     print(f"\n--- Attempting translation: {source_lang} -> {target_lang} ---")
-    print(f"--- Input text: '{text}'")
+
+    # Clean the input text first
+    cleaned_text = text.strip() if isinstance(text, str) else ""
+
+    print(f"--- Input text: '{cleaned_text}' (Original: '{text}')")
 
     if direction not in LOADED_MODELS:
         error_msg = f"Error: Translation direction ({source_lang} -> {target_lang}) not supported or its model failed to load."
@@ -137,12 +141,12 @@ def translate(text: str, source_lang: str, target_lang: str) -> str:
 
     model, tokenizer = LOADED_MODELS[direction]
 
-    if not text or not isinstance(text, str) or not text.strip():
+    if not cleaned_text:
         print("--- Input text is empty or invalid. Returning empty string. ---")
         return ""
     try:
         print(f"--- Using model for {direction}...")
-        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=128)
+        inputs = tokenizer(cleaned_text, return_tensors="pt", padding=True, truncation=True, max_length=128)
         device = model.device
         inputs = {k: v.to(device) for k, v in inputs.items()}
         print(f"--- Input tensors moved to device: {device} ---")
