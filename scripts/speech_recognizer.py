@@ -10,7 +10,7 @@ LOADED_WHISPER_MODELS = {}
 # For initial testing, 'base' or 'small' are good starting points for performance.
 # For better accuracy, 'medium' or 'large' might be considered later, but they are larger.
 # If you fine-tune, you'd put your fine-tuned model path/name here.
-WHISPER_MODEL_NAME = "medium" # Or "small", "medium", "large" as needed
+WHISPER_MODEL_NAME = "./models/whisper-medium-sylheti.pt" # Or "small", "medium", "large" as needed
 
 def _load_whisper_model(model_name: str):
     """

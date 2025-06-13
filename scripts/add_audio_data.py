@@ -47,17 +47,17 @@ def add_audio_entry(phrase_id: int, speaker_id: int, file_path: str):
 
 if __name__ == "__main__":
     with app.app_context():
-        print("--- Running add_audio_data.py ---")
-        print("This script helps populate the AudioFiles table.")
-        print("Ensure your audio files are in a structured directory (e.g., data/audio/sylheti/).")
-        print("Ensure Phrases and Speakers are already in your database.")
+    print("--- Running add_audio_data.py ---")
+    print("This script helps populate the AudioFiles table.")
+    print("Ensure your audio files are in a structured directory (e.g., data/audio/sylheti/).")
+    print("Ensure Phrases and Speakers are already in your database.")
 
-        # --- IMPORTANT: Configure your audio data here ---
-        # This is a list of tuples: (phrase_id, speaker_id, relative_path_to_audio_file)
-        # Replace these with your actual data!
+    # --- IMPORTANT: Configure your audio data here ---
+    # This is a list of tuples: (phrase_id, speaker_id, relative_path_to_audio_file)
+    # Replace these with your actual data!
 
-        # Example: First, add some dummy phrases and speakers if you haven't already done it via API/init_db.py
-        # This part is just for demonstration if your DB is empty. Remove in production use.
+    # Example: First, add some dummy phrases and speakers if you haven't already done it via API/init_db.py
+    # This part is just for demonstration if your DB is empty. Remove in production use.
         try:
             # Add dummy phrase
             if not Phrase.query.filter_by(SylhetiText="মুই ভাত খাই").first():
@@ -83,23 +83,23 @@ if __name__ == "__main__":
             db.session.rollback()
             print(f"Error setting up dummy data: {e}")
             #sys.exit(1) # Exit if essential dummy data setup fails
-        # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
-        # Define your actual audio data entries here
-        # Make sure the `file_path` is relative to your project root or an absolute path.
-        # Example: If your audio is in sylheti_translator_backend/data/audio/sylheti/
-        # and the file is phrase1_speaker1.wav, the path would be "data/audio/sylheti/phrase1_speaker1.wav"
-        audio_entries_to_add = [
+    # Define your actual audio data entries here
+    # Make sure the `file_path` is relative to your project root or an absolute path.
+    # Example: If your audio is in sylheti_translator_backend/data/audio/sylheti/
+    # and the file is phrase1_speaker1.wav, the path would be "data/audio/sylheti/phrase1_speaker1.wav"
+    audio_entries_to_add = [
             (i, 1, f"data/audio/speaker_muniat/{i}.mp3") for i in range(1, 32)
         ] + [
             (i, 2, f"data/audio/speaker_tuhin/{i}.mp3") for i in range(1, 40)
-        ]
+    ]
 
-        # --- Run the additions ---
-        if not audio_entries_to_add:
-            print("No audio entries defined in the script. Please update 'audio_entries_to_add'.")
-        else:
-            for phrase_id, speaker_id, file_path in audio_entries_to_add:
-                add_audio_entry(phrase_id, speaker_id, file_path)
+    # --- Run the additions ---
+    if not audio_entries_to_add:
+        print("No audio entries defined in the script. Please update 'audio_entries_to_add'.")
+    else:
+        for phrase_id, speaker_id, file_path in audio_entries_to_add:
+            add_audio_entry(phrase_id, speaker_id, file_path)
 
-        print("--- Finished add_audio_data.py ---") 
+    print("--- Finished add_audio_data.py ---") 
