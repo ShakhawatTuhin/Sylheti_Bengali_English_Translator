@@ -11,6 +11,7 @@ from transformers import (
 )
 import pandas as pd
 import librosa
+import evaluate
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from dataclasses import dataclass
 from typing import List, Dict, Union, Any
@@ -104,7 +105,8 @@ def main():
     print("--- Starting Whisper Fine-Tuning Script ---")
     
     # --- Model and Processor Setup ---
-    MODEL_NAME = "openai/whisper-medium"
+    # Use a smaller model to fit into 4GB VRAM
+    MODEL_NAME = "openai/whisper-small"
     processor = WhisperProcessor.from_pretrained(MODEL_NAME, language="Bengali", task="transcribe")
     model = WhisperForConditionalGeneration.from_pretrained(MODEL_NAME)
     
@@ -131,15 +133,35 @@ def main():
 
     # 3. Define the Data Collator and Trainer
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
+    
+    # Define evaluation metrics
+    wer_metric = evaluate.load("wer")
+
+    def compute_metrics(pred):
+        pred_ids = pred.predictions
+        label_ids = pred.label_ids
+
+        # replace -100 with the pad_token_id
+        label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
+
+        # we do not want to group tokens when decoding
+        pred_str = processor.batch_decode(pred_ids, skip_special_tokens=True)
+        # decode ground truth labels
+        label_str = processor.batch_decode(label_ids, skip_special_tokens=True)
+
+        wer = wer_metric.compute(predictions=pred_str, references=label_str)
+
+        return {"wer": wer}
 
     training_args = Seq2SeqTrainingArguments(
         output_dir="./whisper-sylheti-finetuned",  # change to a repo name of your choice
-        per_device_train_batch_size=8,
-        gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
+        per_device_train_batch_size=2, # Reduced for 4GB VRAM
+        gradient_accumulation_steps=8,  # Increase accumulation to compensate for small batch size
         learning_rate=1e-5,
         warmup_steps=50,
         max_steps=500, # Set a reasonable number of steps
         gradient_checkpointing=True,
+        fp16=True, # Enable mixed-precision training to save memory
         evaluation_strategy="steps",
         per_device_eval_batch_size=8,
         predict_with_generate=True,
@@ -159,7 +181,8 @@ def main():
         train_dataset=sylheti_dataset["train"],
         eval_dataset=sylheti_dataset["test"],
         data_collator=data_collator,
-        tokenizer=processor.feature_extractor,
+        compute_metrics=compute_metrics,
+        tokenizer=processor,
     )
 
     # 4. Run Fine-Tuning
@@ -175,4 +198,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
