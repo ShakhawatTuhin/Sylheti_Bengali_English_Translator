@@ -14,6 +14,7 @@ import librosa
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from dataclasses import dataclass
 from typing import List, Dict, Union, Any
+import evaluate
 
 # Add the parent directory to the sys.path to allow imports from config and models
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -97,6 +98,24 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 
         return batch
 
+def compute_metrics(pred):
+    """
+    Computes Word Error Rate (WER) for the evaluation step.
+    """
+    pred_ids = pred.predictions
+    label_ids = pred.label_ids
+
+    # replace -100 with the pad_token_id
+    label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
+
+    # we do not want to group tokens when computing the metrics
+    pred_str = processor.tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
+    label_str = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
+
+    wer = 100 * metric.compute(predictions=pred_str, references=label_str)
+
+    return {"wer": wer}
+
 def main():
     """
     Main function to run the fine-tuning process.
@@ -107,6 +126,9 @@ def main():
     MODEL_NAME = "openai/whisper-medium"
     processor = WhisperProcessor.from_pretrained(MODEL_NAME, language="Bengali", task="transcribe")
     model = WhisperForConditionalGeneration.from_pretrained(MODEL_NAME)
+    
+    # Load the WER metric
+    metric = evaluate.load("wer")
     
     model.config.forced_decoder_ids = None
     model.config.suppress_tokens = []
@@ -159,6 +181,7 @@ def main():
         train_dataset=sylheti_dataset["train"],
         eval_dataset=sylheti_dataset["test"],
         data_collator=data_collator,
+        compute_metrics=compute_metrics,
         tokenizer=processor.feature_extractor,
     )
 
