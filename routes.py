@@ -157,9 +157,8 @@ def speech_to_text_api():
         print(f"--- Route Error: No selected file ---")
         return jsonify({"error": f"{endpoint_error_prefix} No selected audio file"}), 400
 
-    # --- ADD THIS LINE ---
-    source_language = request.form.get("source_language", "sylheti") # Default to sylheti
-    # --------------------
+    # Get requested source language hint (if any)
+    source_language = request.form.get("source_language", None)
 
     if audio_file:
         # Ensure a temporary directory exists
@@ -178,21 +177,26 @@ def speech_to_text_api():
             # Call the transcription function
             print(f"--- Route calling speech_recognizer.transcribe_audio function... ---")
             
-            # --- MODIFY THIS LINE ---
-            transcription_result = transcribe_audio(temp_filepath, source_language=source_language)
-            # ------------------------
-
-            print(f"--- Route received result from speech_recognizer: '{transcription_result}' ---")
-
-            # Check if the transcriber function itself returned an error string
-            if isinstance(transcription_result, str) and transcription_result.startswith("Error:"):
-                 print(f"--- Route reporting error from speech_recognizer module ---")
-                 status_code = 500 # Assume internal error for now
-                 return jsonify({"error": transcription_result}), status_code
+            # Get transcription result (now a dictionary with text and detected language)
+            result = transcribe_audio(temp_filepath, source_language=source_language)
+            
+            # Check for error
+            if isinstance(result, dict) and result.get("text", "").startswith("Error:"):
+                print(f"--- Route reporting error from speech_recognizer module ---")
+                return jsonify({"error": result["text"]}), 500
+                
+            # Extract text and detected language
+            transcription_text = result.get("text", "")
+            detected_language = result.get("detected_language", "sylheti")
+            
+            print(f"--- Route received result from speech_recognizer: '{transcription_text}' (Detected: {detected_language}) ---")
 
             # Success Case
             print(f"--- Route returning successful transcription ---")
-            return jsonify({"transcription": transcription_result})
+            return jsonify({
+                "transcription": transcription_text,
+                "detected_language": detected_language
+            })
 
         except Exception as e:
             print(f"--- UNEXPECTED ERROR in /stt route during audio processing: {e} ---")

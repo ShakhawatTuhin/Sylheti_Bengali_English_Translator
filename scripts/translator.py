@@ -14,20 +14,19 @@ HF_USERNAME = "ShakhawatTuhin" # Your HF username
 # If it's a local path, use a relative path like "../models/your_model_dir".
 MODEL_PATHS = {
     # --- SYLHETI AS SOURCE ---
-    ("sylheti", "bengali"): f"{HF_USERNAME}/sylheti_translator_sy_bn_1396",
-    # For local test: ("sylheti", "bengali"): "../models/sy_bn_1396",
+    ("sylheti", "bengali"): "../models/sy_bn_1396",  # Using local path that matches directory structure
 
-    ("sylheti", "english"): f"{HF_USERNAME}/sylheti_translator_sy_en_1396",
-    # For local test: ("sylheti", "english"): "../models/sy_en_1396",
+    ("sylheti", "english"): "../models/sy_en_1396",  # Using local path that matches directory structure
 
     # --- SYLHETI AS TARGET ---
-    ("bengali", "sylheti"): "../models/bn_sy_1396",  # Using local relative path
+    ("bengali", "sylheti"): "../models/bn_sy_1396",  # Using local path that matches directory structure
 
-    # ("bengali", "sylheti"): f"{HF_USERNAME}/sylheti_translator_bn_sy_1396",
-    # For local test: ("bengali", "sylheti"): "../models/bn_sy_1396", # <-- Currently active for testing
-
-    ("english", "sylheti"): f"{HF_USERNAME}/sylheti_translator_en_sy_1396",
-    # For local test: ("english", "sylheti"): "../models/en_sy_1396",
+    # Use local path for English to Sylheti
+    ("english", "sylheti"): "../models/en_sy_1396",  # Using local path that matches directory structure
+    
+    # English to Bengali and Bengali to English will fall back to Hugging Face if we can't find them locally
+    ("english", "bengali"): f"{HF_USERNAME}/sylheti_translator_en_bn_1396",
+    ("bengali", "english"): f"{HF_USERNAME}/sylheti_translator_bn_en_1396",
 }
 
 # --- Helper Function to Load a Single Model ---
@@ -146,11 +145,18 @@ def translate(text: str, source_lang: str, target_lang: str) -> str:
         return ""
     try:
         print(f"--- Using model for {direction}...")
+        
+        # Debug tokenization
+        print(f"--- Tokenizing: '{cleaned_text}'")
+        tokens = tokenizer.tokenize(cleaned_text)
+        print(f"--- Tokens: {tokens}")
+        
         inputs = tokenizer(cleaned_text, return_tensors="pt", padding=True, truncation=True, max_length=128)
         device = model.device
         inputs = {k: v.to(device) for k, v in inputs.items()}
         print(f"--- Input tensors moved to device: {device} ---")
         print(f"--- Calling model.generate...")
+        
         with torch.no_grad():
             translated_ids = model.generate(
                 inputs['input_ids'],
@@ -161,6 +167,19 @@ def translate(text: str, source_lang: str, target_lang: str) -> str:
             )
         print(f"--- Decoding model output...")
         translation = tokenizer.decode(translated_ids[0], skip_special_tokens=True)
+        
+        # Additional debugging
+        if not translation or translation == "?" or translation.strip() == "":
+            print(f"--- WARNING: Empty or question mark translation produced. Raw output tensor: {translated_ids[0]} ---")
+            # Try alternative decoding approach
+            print(f"--- Attempting alternative decoding approach...")
+            translation_alt = tokenizer.convert_ids_to_tokens(translated_ids[0])
+            print(f"--- Alternative decoding tokens: {translation_alt}")
+            
+            # Check if we have only a few tokens that might be special tokens
+            if len(translated_ids[0]) < 5:
+                print(f"--- Very short translation output. This may indicate a model issue or unexpected input format ---")
+        
         print(f"--- Inference successful for {direction}. Returning: '{translation}'")
         return translation
     except Exception as e:

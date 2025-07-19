@@ -490,9 +490,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Set the transcription text
             sourceTextArea.value = responseData.transcription;
             updateCharCount(sourceTextArea, sourceCharCount);
-            debouncedTranslate(); // Trigger translation with the new transcription
+            
+            // Check if we have detected language information and update the dropdown
+            if (responseData.detected_language) {
+                console.log(`Detected language: ${responseData.detected_language}`);
+                // Update the source language dropdown to match the detected language
+                sourceLanguageSelect.value = responseData.detected_language;
+                
+                // If the detected language is the same as the target language, swap them
+                if (sourceLanguageSelect.value === targetLanguageSelect.value) {
+                    // Find a different language to use as target
+                    const availableLanguages = Array.from(targetLanguageSelect.options)
+                        .map(option => option.value)
+                        .filter(lang => lang !== responseData.detected_language);
+                    
+                    if (availableLanguages.length > 0) {
+                        targetLanguageSelect.value = availableLanguages[0];
+                    }
+                }
+            }
+            
+            // Trigger translation with the new transcription
+            debouncedTranslate();
 
         } catch (error) {
             console.error('STT request failed:', error);

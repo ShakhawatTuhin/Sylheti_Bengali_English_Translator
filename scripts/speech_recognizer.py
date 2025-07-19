@@ -1,105 +1,175 @@
 import torch
-import whisper
 import os
 import traceback
+from transformers import WhisperForConditionalGeneration, WhisperProcessor
+import librosa
+import re
 
-# This dictionary will hold loaded Whisper models to avoid reloading them
-LOADED_WHISPER_MODELS = {}
+# This dictionary will hold the loaded model and processor
+LOADED_WHISPER_ASSETS = {}
 
-# You can specify different Whisper models here.
-# For initial testing, 'base' or 'small' are good starting points for performance.
-# For better accuracy, 'medium' or 'large' might be considered later, but they are larger.
-# If you fine-tune, you'd put your fine-tuned model path/name here.
-WHISPER_MODEL_NAME = "./models/whisper-medium-sylheti.pt" # Or "small", "medium", "large" as needed
+# The path to the directory containing your fine-tuned model checkpoint
+WHISPER_MODEL_PATH = "./models/checkpoint-100"
 
-def _load_whisper_model(model_name: str):
+def _load_whisper_model_and_processor(model_path: str):
     """
-    Loads a Whisper model (and downloads it if not available locally).
+    Loads a fine-tuned Whisper model and its processor from a local directory
+    using the Hugging Face transformers library.
     Handles GPU placement if available.
     """
-    if model_name in LOADED_WHISPER_MODELS:
-        print(f"Whisper model '{model_name}' already loaded.")
-        return LOADED_WHISPER_MODELS[model_name]
+    if "model" in LOADED_WHISPER_ASSETS and "processor" in LOADED_WHISPER_ASSETS:
+        print(f"Whisper model and processor from '{model_path}' already loaded.")
+        return LOADED_WHISPER_ASSETS["model"], LOADED_WHISPER_ASSETS["processor"]
 
     try:
-        print(f"Attempting to load Whisper model: {model_name}")
-        model = whisper.load_model(model_name)
+        print(f"Attempting to load Whisper model and processor from: {model_path}")
 
-        if torch.cuda.is_available():
-            model.to('cuda')
-            print(f"Whisper model '{model_name}' moved to GPU.")
-        else:
-            print(f"GPU not available, Whisper model '{model_name}' using CPU.")
+        # Check if the directory and essential files exist
+        if not os.path.isdir(model_path):
+            print(f"ERROR: Model directory not found at {model_path}")
+            return None, None
+        
+        required_files = ["config.json", "model.safetensors"]
+        for f in required_files:
+            if not os.path.exists(os.path.join(model_path, f)):
+                print(f"ERROR: Missing required model file: {f} in {model_path}")
+                return None, None
 
-        LOADED_WHISPER_MODELS[model_name] = model
-        print(f"Successfully loaded Whisper model: {model_name}")
-        return model
+        # Load the processor - processor files might be missing so use the base model
+        try:
+            processor = WhisperProcessor.from_pretrained(model_path)
+        except Exception as e:
+            print(f"Could not load processor from '{model_path}': {e}")
+            print(f"Falling back to 'openai/whisper-small'.")
+            processor = WhisperProcessor.from_pretrained("openai/whisper-small")
+
+        # Load the model
+        model = WhisperForConditionalGeneration.from_pretrained(model_path)
+
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        model.to(device)
+        print(f"Whisper model from '{model_path}' moved to {device}.")
+
+        LOADED_WHISPER_ASSETS["model"] = model
+        LOADED_WHISPER_ASSETS["processor"] = processor
+        print(f"Successfully loaded Whisper model and processor from: {model_path}")
+        return model, processor
     except Exception as e:
-        print(f"ERROR: Failed to load Whisper model '{model_name}': {e}")
+        print(f"ERROR: Failed to load Whisper model/processor from '{model_path}': {e}")
         print(traceback.format_exc())
-        return None
+        return None, None
 
-def transcribe_audio(audio_path: str, source_language: str) -> str:
+def detect_script(text):
     """
-    Transcribes an audio file using the loaded Whisper model.
+    Detects whether the given text is primarily in Bengali or Latin script.
+    Returns 'bengali', 'sylheti', or 'english' based on character frequency.
+    
+    Note: This function treats Sylheti as Bengali script for detection purposes.
+    """
+    # Remove the Unicode replacement character (U+FFFD)
+    text = text.replace('\ufffd', '')
+    
+    # Count Bengali vs Latin characters
+    bengali_count = len(re.findall(r'[\u0980-\u09FF]', text))
+    latin_count = len(re.findall(r'[a-zA-Z]', text))
+    
+    # Log detailed character analysis for debugging
+    print(f"--- Script detection: Text='{text}', Bengali chars={bengali_count}, Latin chars={latin_count} ---")
+    
+    # Log sample characters from each script that were found
+    bengali_chars = re.findall(r'[\u0980-\u09FF]', text)
+    latin_chars = re.findall(r'[a-zA-Z]', text)
+    
+    if bengali_chars:
+        print(f"--- Bengali script characters found: {bengali_chars[:10]} ---")
+    if latin_chars:
+        print(f"--- Latin script characters found: {latin_chars[:10]} ---")
+    
+    # If most characters are Bengali script
+    if bengali_count > latin_count:
+        return 'sylheti'  # Default to sylheti when Bengali script is detected
+    else:
+        return 'english'
+
+def clean_transcript(text):
+    """
+    Cleans up transcription artifacts.
+    """
+    # Remove the Unicode replacement character (U+FFFD)
+    text = text.replace('\ufffd', '')
+    # Remove any other common artifacts
+    text = text.strip()
+    return text
+
+def transcribe_audio(audio_path: str, source_language: str = None) -> dict:
+    """
+    Transcribes an audio file using the fine-tuned Whisper model.
 
     Args:
         audio_path (str): The path to the audio file to transcribe.
-        source_language (str): The source language of the audio file.
+        source_language (str, optional): The source language hint.
 
     Returns:
-        str: The transcribed text, or an error message.
+        dict: A dictionary with 'text' (transcribed text) and 'detected_language'
+              (what language was detected based on script analysis).
     """
     print(f"--- Attempting audio transcription for: {audio_path} ---")
 
     if not os.path.exists(audio_path):
-        return f"Error: Audio file not found at {audio_path}"
-    
-    # Check if the audio file is empty or too small (e.g., less than 1KB)
-    if os.path.getsize(audio_path) < 1024: # 1KB threshold
-        print(f"--- WARNING: Audio file at {audio_path} is very small ({os.path.getsize(audio_path)} bytes). This may indicate an empty or problematic recording. ---")
-        return "Error: Recorded audio is too short or empty. Please speak for a moment."
+        return {"text": f"Error: Audio file not found at {audio_path}", "detected_language": None}
 
-    model = _load_whisper_model(WHISPER_MODEL_NAME)
-    if model is None:
-        return f"Error: Whisper model '{WHISPER_MODEL_NAME}' could not be loaded for transcription."
+    if os.path.getsize(audio_path) < 1024:
+        print(f"--- WARNING: Audio file at {audio_path} is very small ({os.path.getsize(audio_path)} bytes). This may indicate an empty or problematic recording. ---")
+        return {"text": "Error: Recorded audio is too short or empty. Please speak for a moment.", "detected_language": None}
+
+    model, processor = _load_whisper_model_and_processor(WHISPER_MODEL_PATH)
+    if model is None or processor is None:
+        return {"text": f"Error: Whisper model from '{WHISPER_MODEL_PATH}' could not be loaded for transcription.", "detected_language": None}
 
     try:
-        # Determine language code and prompt for Whisper based on the source language
-        whisper_lang_code = "en"  # Default to English
-        sylheti_prompt = ""  # Default to no prompt
+        # Load and process the audio file
+        audio_input, sampling_rate = librosa.load(audio_path, sr=16000)
 
-        if source_language in ["sylheti", "bengali"]:
-            whisper_lang_code = "bn"
-            sylheti_prompt = "মুই ভাত খাই। তুমার নাম কিতা? আমি এখন যাইরাম।"
-
-        print(f"--- Transcribing with language hint: '{whisper_lang_code}' ---")
-
-        # Whisper automatically handles many audio formats
-        result = model.transcribe(
-            audio_path,
-            fp16=torch.cuda.is_available(),
-            language=whisper_lang_code,
-            initial_prompt=sylheti_prompt
-        )
-        transcription = result["text"]
+        # Process the audio to create input features
+        input_features = processor(audio_input, sampling_rate=sampling_rate, return_tensors="pt").input_features
         
-        # Safely print language probability if available
-        if 'language' in result and 'language_probability' in result:
-            print(f"--- Whisper detected language: {result['language']} (probability: {result['language_probability']:.2f}) ---")
-        else:
-            print("--- Whisper language detection information not available. ---")
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        input_features = input_features.to(device)
 
-        print(f"--- Transcription successful: '{transcription}' ---")
-        return transcription
+        # If source_language was provided, use it as a hint; otherwise default to Bengali
+        lang_code = "bn"  # Default to Bengali/Sylheti
+        if source_language == "english":
+            lang_code = "en"
+            
+        # Generate token IDs
+        forced_decoder_ids = processor.get_decoder_prompt_ids(language=lang_code, task="transcribe")
+        predicted_ids = model.generate(input_features, forced_decoder_ids=forced_decoder_ids)
+
+        # Decode the token IDs to text
+        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+        
+        # Clean up the transcript (remove artifacts)
+        cleaned_transcription = clean_transcript(transcription)
+        
+        # Detect the script to determine the actual language
+        detected_language = detect_script(cleaned_transcription)
+        
+        print(f"--- Transcription successful: '{cleaned_transcription}' (Detected language: {detected_language}) ---")
+        return {
+            "text": cleaned_transcription,
+            "detected_language": detected_language
+        }
     except Exception as e:
         print(f"--- ERROR during Whisper transcription of {audio_path}: {e} ---")
         print(traceback.format_exc())
-        return f"Error: Failed to transcribe audio file. {type(e).__name__}: {str(e)}"
+        return {
+            "text": f"Error: Failed to transcribe audio file. {type(e).__name__}: {str(e)}",
+            "detected_language": None
+        }
 
 # Ensure the model is loaded when this module is imported
 if __name__ != '__main__':
-    _load_whisper_model(WHISPER_MODEL_NAME)
+    _load_whisper_model_and_processor(WHISPER_MODEL_PATH)
 else:
     print("Running speech_recognizer.py directly (for testing purposes only).")
     # Example usage for direct testing:
