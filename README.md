@@ -60,7 +60,7 @@ sylheti_translator_backend/
 ├── data/
 ├── static/
 ├── templates/
-├── assets/           # <-- Place your screenshots here
+├── assets/          
 └── ...
 ```
 
